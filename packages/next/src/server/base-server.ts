@@ -3891,6 +3891,9 @@ export default abstract class Server<
         await this.renderErrorToResponse(ctx, err)
         removeRequestMeta(ctx.req, 'customErrorRender')
       }
+      const hasErrorPage = await this.hasPage('/_error')
+      await this.renderErrorToResponse(ctx, err)
+      
 
       const isWrappedError = err instanceof WrappedBuildError
 
@@ -3930,6 +3933,7 @@ export default abstract class Server<
       return null
     }
 
+    console.log('No matching route found for', pathname)
     res.statusCode = 404
     return this.renderErrorToResponse(ctx, null)
   }
@@ -4031,7 +4035,7 @@ export default abstract class Server<
     try {
       let result: null | FindComponentsResult = null
 
-      const is404 = res.statusCode === 404
+      const is404 = res.statusCode === 404 && ctx.pathname !== '/_error'
       let using404Page = false
 
       if (is404) {
@@ -4065,6 +4069,10 @@ export default abstract class Server<
       }
       let statusPage = `/${res.statusCode}`
 
+      if (ctx.pathname === '/_error') {
+        res.statusCode = 500
+        statusPage = '/_error/page'
+      }
       if (
         !getRequestMeta(ctx.req, 'customErrorRender') &&
         !result &&
@@ -4090,6 +4098,19 @@ export default abstract class Server<
       if (!result) {
         result = await this.findPageComponents({
           locale: getRequestMeta(ctx.req, 'locale'),
+          page: '/_error/page',
+          query,
+          params: {},
+          isAppPath: true,
+          // Ensuring can't be done here because you never "match" an error
+          // route.
+          shouldEnsure: true,
+          url: ctx.req.url,
+        })
+      }
+      if (!result) {
+        result = await this.findPageComponents({
+          locale: getRequestMeta(ctx.req, 'locale'),
           page: '/_error',
           query,
           params: {},
@@ -4099,7 +4120,6 @@ export default abstract class Server<
           shouldEnsure: true,
           url: ctx.req.url,
         })
-        statusPage = '/_error'
       }
 
       if (
@@ -4178,18 +4198,22 @@ export default abstract class Server<
         this.logError(renderToHtmlError)
       }
       res.statusCode = 500
-      const fallbackComponents = await this.getFallbackErrorComponents(
-        ctx.req.url
-      )
 
-      if (fallbackComponents) {
-        // There was an error, so use it's definition from the route module
-        // to add the match to the request.
-        addRequestMeta(ctx.req, 'match', {
-          definition: fallbackComponents.routeModule!.definition,
-          params: undefined,
-        })
+      // Search for App Router /_error page first
+      const appRouterErrorComponents = await this.findPageComponents({
+        locale: getRequestMeta(ctx.req, 'locale'),
+        page: '/_error/page',
+        query,
+        params: {},
+        isAppPath: true,
+        // Ensuring can't be done here because you never "match" an error
+        // route.
+        shouldEnsure: true,
+        url: ctx.req.url,
+      })
 
+      // If there's an App Router /_error page, render it.
+      if (appRouterErrorComponents) {
         return this.renderToResponseWithComponents(
           {
             ...ctx,
@@ -4197,17 +4221,47 @@ export default abstract class Server<
             renderOpts: {
               ...ctx.renderOpts,
               // We render `renderToHtmlError` here because `err` is
-              // already captured in the stacktrace.
-              err: isWrappedError
-                ? renderToHtmlError.innerError
-                : renderToHtmlError,
+                // already captured in the stacktrace.
+                err: isWrappedError
+                  ? renderToHtmlError.innerError
+                  : renderToHtmlError,
             },
           },
-          {
-            query,
-            components: fallbackComponents,
-          }
+          appRouterErrorComponents
         )
+      } else {
+        // Otherwise fallback to Pages Router fallback /_error
+        const fallbackComponents = await this.getFallbackErrorComponents(
+          ctx.req.url
+        )
+  
+        if (fallbackComponents) {
+          // There was an error, so use it's definition from the route module
+          // to add the match to the request.
+          addRequestMeta(ctx.req, 'match', {
+            definition: fallbackComponents.routeModule!.definition,
+            params: undefined,
+          })
+  
+          return this.renderToResponseWithComponents(
+            {
+              ...ctx,
+              pathname: '/_error',
+              renderOpts: {
+                ...ctx.renderOpts,
+                // We render `renderToHtmlError` here because `err` is
+                // already captured in the stacktrace.
+                err: isWrappedError
+                  ? renderToHtmlError.innerError
+                  : renderToHtmlError,
+              },
+            },
+            {
+              query,
+              components: fallbackComponents,
+            }
+          )
+        }
       }
       return {
         type: 'html',
