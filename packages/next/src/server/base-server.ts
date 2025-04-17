@@ -1776,7 +1776,7 @@ export default abstract class Server<
       'renderOpts'
     >
   ): Promise<void> {
-    return getTracer().trace(BaseServerSpan.pipe, async () =>
+    return getTracer().trace(BaseServerSpan.pipe, () =>
       this.pipeImpl(fn, partialContext)
     )
   }
@@ -3968,7 +3968,7 @@ export default abstract class Server<
     query: NextParsedUrlQuery = {},
     setHeaders = true
   ): Promise<void> {
-    return getTracer().trace(BaseServerSpan.renderError, async () => {
+    return getTracer().trace(BaseServerSpan.renderError, () => {
       return this.renderErrorImpl(err, req, res, pathname, query, setHeaders)
     })
   }
@@ -4010,7 +4010,7 @@ export default abstract class Server<
     ctx: RequestContext<ServerRequest, ServerResponse>,
     err: Error | null
   ): Promise<ResponsePayload | null> {
-    return getTracer().trace(BaseServerSpan.renderErrorToResponse, async () => {
+    return getTracer().trace(BaseServerSpan.renderErrorToResponse, () => {
       return this.renderErrorToResponseImpl(ctx, err)
     })
   }
@@ -4065,7 +4065,6 @@ export default abstract class Server<
         }
       }
       let statusPage = `/${res.statusCode}`
-
       if (
         !getRequestMeta(ctx.req, 'customErrorRender') &&
         !result &&
@@ -4090,7 +4089,7 @@ export default abstract class Server<
 
       // Look for App Router /_error in dev
       // TODO: remove this once /_error/page is available for next build.
-      if (!result && ctx.renderOpts.dev) {
+      if (!result && ctx.renderOpts.dev && statusPage !== '/500') {
         try {
           result = await this.findPageComponents({
             locale: getRequestMeta(ctx.req, 'locale'),
