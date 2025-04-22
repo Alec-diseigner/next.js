@@ -3,7 +3,7 @@
 use anyhow::{bail, Context, Result};
 use rustc_hash::{FxHashMap, FxHashSet};
 use turbo_rcstr::RcStr;
-use turbo_tasks::{ResolvedVc, Vc};
+use turbo_tasks::{ResolvedVc, TryJoinIterExt, Vc};
 use turbopack_core::{
     module_graph::{ModuleGraph, SingleModuleGraph},
     resolve::ExportUsage,
@@ -49,15 +49,18 @@ pub async fn is_export_used(
 pub async fn compute_export_usage_info(
     graph: ResolvedVc<ModuleGraph>,
 ) -> Result<Vc<ExportUsageInfo>> {
-    let mut results = Vec::new();
-    for g in &graph.await?.graphs {
-        results.push(compute_export_usage_info_single(**g));
-    }
+    let results = graph
+        .await?
+        .graphs
+        .iter()
+        .map(|g| compute_export_usage_info_single(**g))
+        .try_join()
+        .await?;
 
     let mut result = ExportUsageInfo::default();
 
     for item in results {
-        for (k, v) in &item.await?.used_exports {
+        for (k, v) in &item.used_exports {
             result.used_exports.entry(*k).or_default().extend(v.clone());
         }
     }
