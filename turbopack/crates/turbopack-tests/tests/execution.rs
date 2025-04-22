@@ -242,6 +242,7 @@ async fn run_inner_operation(
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct TestOptions {
     tree_shaking_mode: Option<TreeShakingMode>,
+    #[serde(default)]
     remove_unused_exports: bool,
 }
 
