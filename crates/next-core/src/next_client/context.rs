@@ -350,7 +350,7 @@ pub async fn get_client_module_options_context(
         enable_postcss_transform,
         side_effect_free_packages: next_config.optimize_package_imports().owned().await?,
         keep_last_successful_parse: next_mode.is_development(),
-        enable_intermediate_tree_shaking: matches!(
+        unused_export_removal: matches!(
             tree_shaking_mode_for_user_code,
             Some(TreeShakingMode::Intermediate)
         ) || matches!(

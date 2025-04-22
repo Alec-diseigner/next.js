@@ -306,7 +306,7 @@ async fn run_test_operation(resource: RcStr) -> Result<Vc<FileSystemPath>> {
             rules: vec![(
                 ContextCondition::InDirectory("node_modules".into()),
                 ModuleOptionsContext {
-                    enable_intermediate_tree_shaking: matches!(
+                    unused_export_removal: matches!(
                         options.tree_shaking_mode,
                         Some(TreeShakingMode::Intermediate)
                     ),
@@ -319,7 +319,7 @@ async fn run_test_operation(resource: RcStr) -> Result<Vc<FileSystemPath>> {
             )],
             module_rules: vec![module_rules],
             tree_shaking_mode: options.tree_shaking_mode,
-            enable_intermediate_tree_shaking: matches!(
+            unused_export_removal: matches!(
                 options.tree_shaking_mode,
                 Some(TreeShakingMode::Intermediate)
             ),

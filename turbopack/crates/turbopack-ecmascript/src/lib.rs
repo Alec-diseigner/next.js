@@ -165,7 +165,7 @@ pub struct EcmascriptOptions {
     /// are temporarily introduced.
     pub keep_last_successful_parse: bool,
 
-    pub enable_intermediate_tree_shaking: bool,
+    pub unused_export_removal: bool,
 }
 
 #[turbo_tasks::value(serialization = "auto_for_input")]
@@ -433,10 +433,7 @@ impl EcmascriptAnalyzable for EcmascriptModuleAsset {
             .reference_module_source_maps(Vc::upcast(self))
             .await?;
 
-        let enable_intermediate_tree_shaking = self_resolved
-            .options()
-            .await?
-            .enable_intermediate_tree_shaking;
+        let unused_export_removal = self_resolved.options().await?.unused_export_removal;
 
         Ok(EcmascriptModuleContent::new(
             EcmascriptModuleContentOptions {
@@ -454,7 +451,7 @@ impl EcmascriptAnalyzable for EcmascriptModuleAsset {
                 original_source_map: analyze_ref.source_map,
                 exports: analyze_ref.exports,
                 async_module_info,
-                enable_intermediate_tree_shaking,
+                unused_export_removal,
             },
         ))
     }
@@ -812,7 +809,7 @@ pub struct EcmascriptModuleContentOptions {
     original_source_map: ResolvedVc<OptionStringifiedSourceMap>,
     exports: ResolvedVc<EcmascriptExports>,
     async_module_info: Option<ResolvedVc<AsyncModuleInfo>>,
-    enable_intermediate_tree_shaking: bool,
+    unused_export_removal: bool,
 }
 
 #[turbo_tasks::value_impl]
@@ -835,7 +832,7 @@ impl EcmascriptModuleContent {
             original_source_map,
             exports,
             async_module_info,
-            enable_intermediate_tree_shaking,
+            unused_export_removal,
         } = input;
 
         let (esm_code_gens, additional_code_gens, code_gens) = async {
@@ -861,7 +858,7 @@ impl EcmascriptModuleContent {
                                 *chunking_context,
                                 module,
                                 Some(*parsed),
-                                enable_intermediate_tree_shaking,
+                                unused_export_removal,
                             )
                             .await?,
                     )
