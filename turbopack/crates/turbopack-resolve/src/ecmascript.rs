@@ -45,33 +45,13 @@ pub fn apply_esm_specific_options(
     options: Vc<ResolveOptions>,
     reference_type: Value<ReferenceType>,
 ) -> Vc<ResolveOptions> {
-    apply_esm_specific_options_internal(options, reference_type)
-}
-
-#[turbo_tasks::function]
-async fn apply_esm_specific_options_internal(
-    options: Vc<ResolveOptions>,
-    reference_type: Value<ReferenceType>,
-) -> Result<Vc<ResolveOptions>> {
     let reference_type = reference_type.into_value();
-
-    let mut options: ResolveOptions = options.owned().await?;
-    // TODO set fully_specified when in strict ESM mode
-    // options.fully_specified = true;
-    for conditions in get_condition_maps(&mut options) {
-        conditions.insert("import".into(), ConditionValue::Set);
-        conditions.insert("require".into(), ConditionValue::Unset);
-    }
-
-    if matches!(
+    let clear_extensions = matches!(
         reference_type,
         ReferenceType::EcmaScriptModules(EcmaScriptModulesReferenceSubType::ImportWithType(_))
-    ) {
-        options.extensions.clear();
-    }
+    );
 
-    options.parse_data_uris = true;
-    options.export = match reference_type {
+    let export_usage = match reference_type {
         ReferenceType::EcmaScriptModules(EcmaScriptModulesReferenceSubType::ImportPart(part)) => {
             match part {
                 ModulePart::Export(name) => ExportUsage::Named(name.clone()),
@@ -81,6 +61,30 @@ async fn apply_esm_specific_options_internal(
         }
         _ => ExportUsage::All,
     };
+
+    apply_esm_specific_options_internal(options, clear_extensions, export_usage)
+}
+
+#[turbo_tasks::function]
+async fn apply_esm_specific_options_internal(
+    options: Vc<ResolveOptions>,
+    clear_extensions: bool,
+    export_usage: ExportUsage,
+) -> Result<Vc<ResolveOptions>> {
+    let mut options: ResolveOptions = options.owned().await?;
+    // TODO set fully_specified when in strict ESM mode
+    // options.fully_specified = true;
+    for conditions in get_condition_maps(&mut options) {
+        conditions.insert("import".into(), ConditionValue::Set);
+        conditions.insert("require".into(), ConditionValue::Unset);
+    }
+
+    if clear_extensions {
+        options.extensions.clear();
+    }
+
+    options.parse_data_uris = true;
+    options.export = export_usage;
 
     Ok(options.cell())
 }
