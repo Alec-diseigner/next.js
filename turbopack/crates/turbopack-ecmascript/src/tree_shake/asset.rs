@@ -10,7 +10,7 @@ use turbopack_core::{
     module::Module,
     module_graph::ModuleGraph,
     reference::{ModuleReference, ModuleReferences, SingleChunkableModuleReference},
-    resolve::{origin::ResolveOrigin, ModulePart},
+    resolve::{origin::ResolveOrigin, ExportUsage, ModulePart},
 };
 
 use super::{
@@ -293,12 +293,20 @@ impl Module for EcmascriptModulePartAsset {
     #[turbo_tasks::function]
     async fn references(&self) -> Result<Vc<ModuleReferences>> {
         let part_dep = |part: ModulePart| -> Vc<Box<dyn ModuleReference>> {
+            let export = match &part {
+                ModulePart::Evaluation => ExportUsage::Evaluation,
+                // This does not point to the real export, so we use evaluation.
+                ModulePart::Internal(..) => ExportUsage::Evaluation,
+                ModulePart::Export(export) => ExportUsage::Named(export.clone()),
+                _ => ExportUsage::All,
+            };
             Vc::upcast(SingleChunkableModuleReference::new(
                 Vc::upcast(EcmascriptModulePartAsset::new_with_resolved_part(
                     *self.full_module,
                     part,
                 )),
                 Vc::cell("part reference".into()),
+                export,
             ))
         };
 
