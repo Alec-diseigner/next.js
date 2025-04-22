@@ -163,7 +163,6 @@ async fn apply_module_type(
                             part.unwrap_or(ModulePart::facade()),
                         ))
                     }
-                    Some(TreeShakingMode::Intermediate) => Vc::upcast(module),
                     Some(TreeShakingMode::ReexportsOnly) => {
                         if let Some(part) = part {
                             match part {

@@ -770,22 +770,6 @@ pub(crate) async fn analyse_ecmascript_module_internal(
                         ImportedSymbol::Part(part_id) => Some(ModulePart::internal(*part_id)),
                         ImportedSymbol::Exports => Some(ModulePart::exports()),
                     },
-                    Some(TreeShakingMode::Intermediate) => match &r.imported_symbol {
-                        ImportedSymbol::ModuleEvaluation => {
-                            should_add_evaluation = true;
-                            Some(ModulePart::evaluation())
-                        }
-                        ImportedSymbol::Symbol(name) => Some(ModulePart::export((&**name).into())),
-                        ImportedSymbol::PartEvaluation(_) | ImportedSymbol::Part(_) => {
-                            bail!(
-                                "Internal imports doesn't exist in intermediate mode when \
-                                 importing {:?} from {}",
-                                r.imported_symbol,
-                                r.module_path
-                            );
-                        }
-                        ImportedSymbol::Exports => Some(ModulePart::exports()),
-                    },
                     Some(TreeShakingMode::ReexportsOnly) => match &r.imported_symbol {
                         ImportedSymbol::ModuleEvaluation => {
                             should_add_evaluation = true;
@@ -2585,9 +2569,7 @@ async fn handle_free_var_reference(
                         Default::default(),
                         match state.tree_shaking_mode {
                             Some(
-                                TreeShakingMode::ModuleFragments
-                                | TreeShakingMode::Intermediate
-                                | TreeShakingMode::ReexportsOnly,
+                                TreeShakingMode::ModuleFragments | TreeShakingMode::ReexportsOnly,
                             ) => export.clone().map(ModulePart::export),
                             None => None,
                         },
